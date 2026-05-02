@@ -121,6 +121,7 @@ const GAMEMODE_STORAGE_KEYS = {
 export function useGame(gameMode = 'normal', playMode = '2048') {
   const [moveCount, setMoveCount] = useState(0);
   const prevGridRef = useRef(null);
+  const [history, setHistory] = useState([]); // Array<{grid, score, won}> max 10
 
   // Combined storage key based on gameMode + playMode
   const getStorageKey = () => {
@@ -200,6 +201,17 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
 
     const result = move(grid, direction);
     if (gridsEqual(result.grid, grid)) return;
+
+    // Save current state to history before moving (max 9 entries, newest first)
+    const snapshot = {
+      grid: JSON.parse(JSON.stringify(grid)),
+      score,
+      won
+    };
+    setHistory(prev => {
+      const newHistory = [snapshot, ...prev].slice(0, 9);
+      return newHistory;
+    });
 
     // Track score increase for popup
     if (result.score > 0) {
@@ -312,8 +324,44 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     setWon(false);
     setGameOver(false);
     setMoveCount(0);
+    setHistory([]);
     prevGridRef.current = null;
   }, []);
+
+  const undo = useCallback(() => {
+    if (history.length === 0) return;
+
+    const [latest, ...rest] = history;
+    setHistory(rest);
+
+    // Rebuild tileMap from restored grid
+    const newTileMap = new Map();
+    latest.grid.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (val !== 0) {
+          newTileMap.set(`${r}-${c}`, { id: nextTileId(), r, c, value: val, isNew: false, isMerged: false });
+        }
+      });
+    });
+
+    setGrid(latest.grid);
+    setTileMap(newTileMap);
+    setScore(latest.score);
+    setWon(false); // Reset won state on undo
+    audioManager.playUndo();
+  }, [history]);
+
+  const retry = useCallback(() => {
+    setHistory([]);
+    audioManager.playNewGame();
+    if (gameMode === 'daily') {
+      // For daily challenge, retry should reset with the same seed grid
+      // The parent component will handle providing the dailyGrid
+      newGame();
+    } else {
+      newGame();
+    }
+  }, [gameMode, newGame]);
 
   return {
     grid,
@@ -325,6 +373,10 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     doMove,
     newGame,
     resetWithGrid,
+    undo,
+    retry,
+    canUndo: history.length > 0,
+    history,
     gameMode,
     playMode,
     moveCount,

@@ -38,6 +38,10 @@ export function useAudio() {
     audioManager.playNewGame();
   }, []);
 
+  const playUndo = useCallback(() => {
+    audioManager.playUndo();
+  }, []);
+
   return {
     soundEnabled,
     toggleSound,
@@ -46,5 +50,6 @@ export function useAudio() {
     playWin,
     playGameOver,
     playNewGame,
+    playUndo,
   };
 }

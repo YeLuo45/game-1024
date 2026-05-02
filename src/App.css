@@ -266,6 +266,161 @@ body {
   transform: scale(0.95);
 }
 
+/* Undo and Retry Buttons */
+.game-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.undo-btn,
+.retry-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.undo-btn:hover:not(:disabled),
+.retry-btn:hover {
+  opacity: 0.9;
+}
+
+.undo-btn:active:not(:disabled),
+.retry-btn:active {
+  transform: scale(0.95);
+}
+
+.undo-btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Tab Bar */
+.tab-bar {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 15px;
+  background: rgba(255,255,255,0.3);
+  padding: 5px;
+  border-radius: 10px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #776e65;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  background: transparent;
+}
+
+.tab-btn.active {
+  background-color: #8f7a66;
+  color: white;
+}
+
+.tab-btn:not(.active):hover {
+  background: rgba(255,255,255,0.5);
+}
+
+/* Stats Container */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 15px;
+  width: 100%;
+  max-width: 900px;
+}
+
+.stats-card {
+  background: rgba(255,255,255,0.4);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.stats-card-title {
+  font-size: 1.1rem;
+  color: #776e65;
+  margin-bottom: 15px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 10px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #776e65;
+}
+
+.stat-value.best {
+  color: #e94560;
+}
+
+.stat-value.max-tile {
+  color: #f39c12;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #9a8c7a;
+  margin-top: 5px;
+}
+
+.win-rate-item {
+  grid-column: span 2;
+}
+
+.win-rate-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.win-rate-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.win-rate-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f39c12, #e94560);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.win-rate-text {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #776e65;
+  min-width: 50px;
+}
+
 .new-game-btn {
   margin-top: 15px;
   padding: 12px 30px;

@@ -10,6 +10,7 @@ import { useGame } from '../hooks/useGame';
 import { useDaily } from '../hooks/useDaily';
 import { useAchievements } from '../hooks/useAchievements';
 import { useAudio } from '../hooks/useAudio';
+import { useStats } from '../hooks/useStats';
 import { getSkin } from '../utils/skins';
 
 export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
@@ -25,10 +26,13 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
     doMove,
     newGame,
     resetWithGrid,
+    undo,
+    retry,
+    canUndo,
     moveCount
   } = useGame(gameMode, playMode);
 
-  const { soundEnabled, toggleSound, playNewGame, playWin, playGameOver } = useAudio();
+  const { soundEnabled, toggleSound, playNewGame, playWin, playGameOver, playUndo } = useAudio();
 
   const skin = getSkin(skinName);
   const [showGameOver, setShowGameOver] = useState(false);
@@ -44,6 +48,8 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
     trackSkinUsage,
     checkDaily3: checkDaily3Ach,
   } = useAchievements();
+
+  const { updateStats } = useStats();
 
   const prevGridRef = useRef(null);
   const isInitializedRef = useRef(false);
@@ -86,13 +92,16 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   useEffect(() => {
     if ((gameOver || won) && moveCount > 0) {
       checkNoDead50(won, moveCount);
+      // Update game stats
+      const maxTile = grid ? Math.max(...grid.flat()) : 0;
+      updateStats(playMode, { won, score, maxTile, isDaily: isInDailyChallenge });
       if (isInDailyChallenge) {
         updateBestScore(score);
         const playedCount = getPlayedDaysCount();
         checkDaily3Ach(playedCount);
       }
     }
-  }, [gameOver, won, moveCount, score, isInDailyChallenge, updateBestScore, getPlayedDaysCount, checkNoDead50, checkDaily3Ach]);
+  }, [gameOver, won, moveCount, score, isInDailyChallenge, updateBestScore, getPlayedDaysCount, checkNoDead50, checkDaily3Ach, playMode, grid, updateStats]);
 
   useEffect(() => {
     if (won && !keepPlaying) {
@@ -222,6 +231,26 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
           </button>
         </div>
       </header>
+
+      <div className="game-actions">
+        <button
+          className="undo-btn"
+          onClick={undo}
+          disabled={!canUndo}
+          style={{ backgroundColor: skin.buttonBg, opacity: canUndo ? 1 : 0.4 }}
+          title="撤销"
+        >
+          ↩️
+        </button>
+        <button
+          className="retry-btn"
+          onClick={retry}
+          style={{ backgroundColor: skin.buttonBg }}
+          title="重试"
+        >
+          🔄
+        </button>
+      </div>
       
       <SkinPicker
         currentSkin={skinName}

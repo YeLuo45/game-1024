@@ -5,6 +5,7 @@ import { DailyChallenge } from './components/DailyChallenge';
 import { Achievements } from './components/Achievements';
 import { useDaily } from './hooks/useDaily';
 import { useAchievements } from './hooks/useAchievements';
+import { useStats } from './hooks/useStats';
 import { getSkin } from './utils/skins';
 import { useStorage } from './hooks/useStorage';
 import './App.css';
@@ -21,6 +22,7 @@ function App() {
 
   const { daily, updateBestScore, dailyGrid } = useDaily();
   const { achievementsState, pendingPopup, dismissPopup, isUnlocked, checkDaily3, getPlayedDaysCount } = useAchievements();
+  const { stats, updateStats } = useStats();
 
   const handleShowMenu = () => setCurrentPage('menu');
   const handleBackToGame = () => setCurrentPage('game');
@@ -81,6 +83,7 @@ function App() {
         <Achievements
           achievementsState={achievementsState}
           onBack={handleBackToGame}
+          stats={stats}
         />
       </div>
     );

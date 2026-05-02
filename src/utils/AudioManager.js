@@ -201,6 +201,30 @@ class AudioManager {
       osc.stop(startTime + 0.2);
     });
   }
+
+  // Play undo sound - short light descending tone
+  playUndo() {
+    if (!this.enabled) return;
+    this._ensureContext();
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(330, now + 0.05);
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
 }
 
 // Singleton instance

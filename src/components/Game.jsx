@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { Grid } from './Grid';
 import { ScoreBoard } from './ScoreBoard';
 import { Controls } from './Controls';
@@ -9,6 +9,7 @@ import { ModeSwitcher } from './ModeSwitcher';
 import { useGame } from '../hooks/useGame';
 import { useDaily } from '../hooks/useDaily';
 import { useAchievements } from '../hooks/useAchievements';
+import { useAudio } from '../hooks/useAudio';
 import { getSkin } from '../utils/skins';
 
 export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
@@ -26,6 +27,8 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
     resetWithGrid,
     moveCount
   } = useGame(gameMode, playMode);
+
+  const { soundEnabled, toggleSound, playNewGame, playWin, playGameOver } = useAudio();
 
   const skin = getSkin(skinName);
   const [showGameOver, setShowGameOver] = useState(false);
@@ -46,6 +49,17 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   const isInitializedRef = useRef(false);
 
   // Initialize daily challenge with seeded grid
+  useEffect(() => {
+    if (isInDailyChallenge && dailyGrid && !isInitializedRef.current) {
+      resetWithGrid(dailyGrid);
+      isInitializedRef.current = true;
+    }
+    if (!isInDailyChallenge) {
+      isInitializedRef.current = false;
+    }
+  }, [isInDailyChallenge, dailyGrid, resetWithGrid]);
+
+  // Track skin usage for all-skins achievement
   useEffect(() => {
     if (isInDailyChallenge && dailyGrid && !isInitializedRef.current) {
       resetWithGrid(dailyGrid);
@@ -94,6 +108,7 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   const handleNewGame = () => {
     setShowGameOver(false);
     setKeepPlaying(false);
+    playNewGame();
     if (isInDailyChallenge && dailyGrid) {
       resetWithGrid(dailyGrid);
     } else {
@@ -190,7 +205,15 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
         </div>
         <div className="header-right">
           <ScoreBoard score={score} skin={skin} />
-          <button 
+          <button
+            className="sound-btn"
+            onClick={toggleSound}
+            style={{ backgroundColor: skin.buttonBg }}
+            title={soundEnabled ? 'Mute' : 'Unmute'}
+          >
+            {soundEnabled ? '🔊' : '🔇'}
+          </button>
+          <button
             className="menu-btn"
             onClick={onShowMenu}
             style={{ backgroundColor: skin.buttonBg }}
@@ -214,7 +237,13 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
         />
       )}
       
-      <Grid grid={grid} skin={skin} />
+      <Grid 
+        grid={grid} 
+        skin={skin} 
+        tileMap={tileMap}
+        showScorePopup={showScorePopup}
+        scoreIncrease={scoreIncrease}
+      />
       
       <Controls onMove={handleMove} skin={skin} />
       

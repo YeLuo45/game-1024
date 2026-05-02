@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStorage } from './useStorage';
+import { audioManager } from '../utils/AudioManager';
 
 const GRID_SIZE = 4;
 
@@ -17,13 +18,16 @@ const getEmptyCells = (grid) => {
   return empty;
 };
 
+let globalTileId = 0;
+const nextTileId = () => ++globalTileId;
+
 const addRandomTile = (grid, rng = Math.random) => {
   const empty = getEmptyCells(grid);
-  if (empty.length === 0) return grid;
+  if (empty.length === 0) return { grid, newPos: null };
   const { r, c } = empty[Math.floor(rng() * empty.length)];
   const newGrid = grid.map(row => [...row]);
   newGrid[r][c] = rng() < 0.9 ? 2 : 4;
-  return newGrid;
+  return { grid: newGrid, newPos: { r, c } };
 };
 
 const rotateGrid = (grid, times = 1) => {
@@ -116,10 +120,9 @@ const GAMEMODE_STORAGE_KEYS = {
 
 export function useGame(gameMode = 'normal', playMode = '2048') {
   const [moveCount, setMoveCount] = useState(0);
+  const prevGridRef = useRef(null);
 
   // Combined storage key based on gameMode + playMode
-  // 'normal' mode uses playMode ('2048'/'infinite') for key separation
-  // 'daily' mode uses its own dedicated key
   const getStorageKey = () => {
     if (gameMode === 'daily') return 'game-1024-state-daily';
     return `game-1024-state-${playMode}`;
@@ -134,7 +137,7 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
   const getInitialGrid = useCallback(() => {
     if (savedState?.grid) return savedState.grid;
     const g = createEmptyGrid();
-    return addRandomTile(addRandomTile(g));
+    return addRandomTile(addRandomTile(g).grid).grid;
   }, [savedState]);
 
   const [grid, setGrid] = useState(() => getInitialGrid());
@@ -143,13 +146,44 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
   const [won, setWon] = useState(savedState?.won || false);
   const [gameOver, setGameOver] = useState(savedState?.gameOver || false);
 
+  // Animation state - tileMap contains all current tiles with their properties
+  const [tileMap, setTileMap] = useState(() => {
+    const initialGrid = getInitialGrid();
+    const map = new Map();
+    initialGrid.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (val !== 0) {
+          map.set(`${r}-${c}`, { id: nextTileId(), r, c, value: val, isNew: true, isMerged: false });
+        }
+      });
+    });
+    return map;
+  });
+
+  const [scoreIncrease, setScoreIncrease] = useState(0);
+  const [showScorePopup, setShowScorePopup] = useState(false);
+  const scorePopupTimerRef = useRef(null);
+  const tileIdCounterRef = useRef(globalTileId);
+
   // Reset when gameMode or playMode changes
   useEffect(() => {
-    setGrid(getInitialGrid());
+    const newGrid = getInitialGrid();
+    const newMap = new Map();
+    newGrid.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (val !== 0) {
+          newMap.set(`${r}-${c}`, { id: nextTileId(), r, c, value: val, isNew: true, isMerged: false });
+        }
+      });
+    });
+    globalTileId = tileIdCounterRef.current;
+    setGrid(newGrid);
+    setTileMap(newMap);
     setScore(savedState?.score || 0);
     setWon(savedState?.won || false);
     setGameOver(savedState?.gameOver || false);
     setMoveCount(0);
+    prevGridRef.current = null;
   }, [gameMode, playMode]);
 
   useEffect(() => {
@@ -158,18 +192,78 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     }
   }, [grid, score, won, gameOver, setSavedState]);
 
-  const doMove = useCallback((direction) => {
+  const doMove = useCallback((direction, { onMerge } = {}) => {
     if (gameOver) return;
+
+    // Store previous grid for animation computation
+    prevGridRef.current = grid.map(row => [...row]);
 
     const result = move(grid, direction);
     if (gridsEqual(result.grid, grid)) return;
 
-    const newGrid = addRandomTile(result.grid);
+    // Track score increase for popup
+    if (result.score > 0) {
+      setScoreIncrease(result.score);
+      setShowScorePopup(true);
+      if (scorePopupTimerRef.current) clearTimeout(scorePopupTimerRef.current);
+      scorePopupTimerRef.current = setTimeout(() => setShowScorePopup(false), 800);
+    }
+
+    const { grid: newGrid, newPos } = addRandomTile(result.grid);
+
+    // Compute animation flags by comparing grids
+    const prevGrid = result.grid; // grid before random tile was added
+    const mergedSet = new Set();
+    const newSet = new Set();
+
+    // Find merged positions (value doubled)
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        if (prevGrid[r][c] !== 0 && newGrid[r][c] === prevGrid[r][c] * 2) {
+          mergedSet.add(`${r}-${c}`);
+        }
+      }
+    }
+
+    // Find new tile position
+    if (newPos) {
+      newSet.add(`${newPos.r}-${newPos.c}`);
+    }
+
+    // Build new tile map
+    const newTileMap = new Map();
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        if (newGrid[r][c] !== 0) {
+          const key = `${r}-${c}`;
+          const isNew = newSet.has(key);
+          const isMerged = mergedSet.has(key);
+
+          newTileMap.set(key, {
+            id: nextTileId(),
+            r,
+            c,
+            value: newGrid[r][c],
+            isNew,
+            isMerged,
+          });
+        }
+      }
+    }
+
     setGrid(newGrid);
+    setTileMap(newTileMap);
     setScore(s => s + result.score);
     setMoveCount(c => c + 1);
 
-    // Win condition: playMode has a winValue and grid reaches it
+    // Play sounds
+    if (result.merges > 0) {
+      audioManager.playMerge(newGrid[Object.keys(mergedSet)[0]?.split('-')[0]][Object.keys(mergedSet)[0]?.split('-')[1]]);
+    } else {
+      audioManager.playMove();
+    }
+
+    // Win condition
     if (!won && winValue !== null) {
       const maxTile = Math.max(...newGrid.flat());
       if (maxTile >= winValue) {
@@ -184,19 +278,41 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
 
   const newGame = useCallback(() => {
     const g = createEmptyGrid();
-    setGrid(addRandomTile(addRandomTile(g)));
+    const { grid: newGrid } = addRandomTile(addRandomTile(g).grid);
+    const newMap = new Map();
+    newGrid.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (val !== 0) {
+          newMap.set(`${r}-${c}`, { id: nextTileId(), r, c, value: val, isNew: true, isMerged: false });
+        }
+      });
+    });
+    setGrid(newGrid);
+    setTileMap(newMap);
     setScore(0);
     setWon(false);
     setGameOver(false);
     setMoveCount(0);
+    prevGridRef.current = null;
   }, []);
 
   const resetWithGrid = useCallback((dailyGrid) => {
-    setGrid([...dailyGrid.map(row => [...row])]);
+    const gridCopy = [...dailyGrid.map(row => [...row])];
+    const newMap = new Map();
+    gridCopy.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (val !== 0) {
+          newMap.set(`${r}-${c}`, { id: nextTileId(), r, c, value: val, isNew: true, isMerged: false });
+        }
+      });
+    });
+    setGrid(gridCopy);
+    setTileMap(newMap);
     setScore(0);
     setWon(false);
     setGameOver(false);
     setMoveCount(0);
+    prevGridRef.current = null;
   }, []);
 
   return {
@@ -212,5 +328,8 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     gameMode,
     playMode,
     moveCount,
+    tileMap,
+    scoreIncrease,
+    showScorePopup,
   };
 }

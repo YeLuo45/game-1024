@@ -151,7 +151,87 @@ body {
   justify-content: center;
   border-radius: 6px;
   font-weight: bold;
-  transition: transform 0.1s;
+}
+
+/* Tile Animations */
+.grid-tiles {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+}
+
+.tile {
+  position: absolute;
+  padding: 5px;
+  transition: top 150ms ease-out, left 150ms ease-out;
+}
+
+/* New tile appearing animation - scale up from 0 */
+.tile-new {
+  animation: tileAppear 200ms ease-out forwards;
+}
+
+/* Merge animation - pop effect */
+.tile-merged {
+  animation: tileMerge 200ms ease-out;
+}
+
+@keyframes tileAppear {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes tileMerge {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Score popup animation */
+.score-popup {
+  position: absolute;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #f67c5f;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: scoreFloat 800ms ease-out forwards;
+  z-index: 100;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes scoreFloat {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  40% {
+    transform: translate(-50%, -70%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -150%) scale(0.8);
+  }
 }
 
 .controls {
@@ -259,6 +339,21 @@ body {
 
 .game-btn:active {
   transform: scale(0.98);
+}
+
+/* Sound Button */
+.sound-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.sound-btn:hover {
+  opacity: 0.9;
 }
 
 /* Menu Button */

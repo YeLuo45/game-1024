@@ -10,17 +10,21 @@ import { useStorage } from './hooks/useStorage';
 import './App.css';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('game'); // 'game' | 'menu' | 'daily' | 'achievements'
-  const [gameMode, setGameMode] = useState('normal'); // 'normal' | 'daily'
+  // 'normal' | 'daily' — determines which game grid is used
+  const [gameMode, setGameMode] = useState('normal');
+  // '2048' | 'infinite' — determines win condition, stored independently
+  const [playMode, setPlayMode] = useStorage('game-1024-mode', '2048');
   const [skinName] = useStorage('game-1024-skin', 'classic');
   const skin = getSkin(skinName);
-  
+
+  const [currentPage, setCurrentPage] = useState('game'); // 'game' | 'menu' | 'daily' | 'achievements'
+
   const { daily, updateBestScore, dailyGrid } = useDaily();
   const { achievementsState, pendingPopup, dismissPopup, isUnlocked, checkDaily3, getPlayedDaysCount } = useAchievements();
 
   const handleShowMenu = () => setCurrentPage('menu');
   const handleBackToGame = () => setCurrentPage('game');
-  
+
   const handleShowDailyChallenge = () => setCurrentPage('daily');
   const handleStartDailyChallenge = () => {
     setGameMode('daily');
@@ -29,17 +33,26 @@ function App() {
 
   const handleShowAchievements = () => setCurrentPage('achievements');
 
-  // Normal mode when returning from daily
   const handleBackFromDaily = () => {
     setGameMode('normal');
     setCurrentPage('game');
+  };
+
+  const handlePlayModeChange = (newMode) => {
+    setPlayMode(newMode);
+    // Switching play mode resets normal game
+    if (gameMode === 'normal') {
+      // Force re-init by briefly toggling gameMode
+      setGameMode(null);
+      setTimeout(() => setGameMode('normal'), 0);
+    }
   };
 
   // Render based on current page
   if (currentPage === 'menu') {
     return (
       <div className="app" style={{ backgroundColor: skin.background }}>
-        <Menu 
+        <Menu
           onDailyChallenge={handleShowDailyChallenge}
           onAchievements={handleShowAchievements}
           onBack={handleBackToGame}
@@ -52,7 +65,7 @@ function App() {
   if (currentPage === 'daily') {
     return (
       <div className="app" style={{ backgroundColor: skin.background }}>
-        <DailyChallenge 
+        <DailyChallenge
           daily={daily}
           onBack={handleBackFromDaily}
           onStartChallenge={handleStartDailyChallenge}
@@ -65,7 +78,7 @@ function App() {
   if (currentPage === 'achievements') {
     return (
       <div className="app" style={{ backgroundColor: skin.background }}>
-        <Achievements 
+        <Achievements
           achievementsState={achievementsState}
           onBack={handleBackToGame}
         />
@@ -75,8 +88,10 @@ function App() {
 
   return (
     <div className="app" style={{ backgroundColor: skin.background }}>
-      <Game 
+      <Game
         gameMode={gameMode}
+        playMode={playMode}
+        onPlayModeChange={handlePlayModeChange}
         onShowMenu={handleShowMenu}
       />
     </div>

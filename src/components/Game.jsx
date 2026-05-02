@@ -5,14 +5,15 @@ import { Controls } from './Controls';
 import { SkinPicker } from './SkinPicker';
 import { GameOver } from './GameOver';
 import { AchievementPopup } from './AchievementPopup';
+import { ModeSwitcher } from './ModeSwitcher';
 import { useGame } from '../hooks/useGame';
 import { useDaily } from '../hooks/useDaily';
 import { useAchievements } from '../hooks/useAchievements';
 import { getSkin } from '../utils/skins';
 
-export function Game({ gameMode, onShowMenu }) {
+export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   const isInDailyChallenge = gameMode === 'daily';
-  
+
   const {
     grid,
     score,
@@ -23,9 +24,8 @@ export function Game({ gameMode, onShowMenu }) {
     doMove,
     newGame,
     resetWithGrid,
-    mode,
     moveCount
-  } = useGame(gameMode);
+  } = useGame(gameMode, playMode);
 
   const skin = getSkin(skinName);
   const [showGameOver, setShowGameOver] = useState(false);
@@ -205,6 +205,14 @@ export function Game({ gameMode, onShowMenu }) {
         onSkinChange={setSkin}
         skin={skin}
       />
+
+      {!isInDailyChallenge && (
+        <ModeSwitcher
+          currentMode={playMode}
+          onModeChange={onPlayModeChange}
+          skin={skin}
+        />
+      )}
       
       <Grid grid={grid} skin={skin} />
       

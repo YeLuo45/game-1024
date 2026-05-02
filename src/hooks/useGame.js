@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useStorage } from './useStorage';
 
 const GRID_SIZE = 4;
-const WIN_VALUE = 1024;
 
 const createEmptyGrid = () => {
   return Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(0));
@@ -46,7 +45,7 @@ const slideRow = (row) => {
   const merged = [];
   let score = 0;
   let mergeCount = 0;
-  
+
   for (let i = 0; i < filtered.length; i++) {
     if (i < filtered.length - 1 && filtered[i] === filtered[i + 1]) {
       const newVal = filtered[i] * 2;
@@ -58,7 +57,7 @@ const slideRow = (row) => {
       merged.push(filtered[i]);
     }
   }
-  
+
   while (merged.length < GRID_SIZE) merged.push(0);
   return { row: merged, score, mergeCount };
 };
@@ -103,19 +102,35 @@ const canMove = (grid) => {
   return false;
 };
 
-// Mode-specific storage keys
-const MODE_STORAGE_KEYS = {
-  normal: 'game-1024-state',
-  daily: 'game-1024-state-daily',
+// Play mode storage keys (2048 vs infinite)
+const PLAYMODE_STORAGE_KEYS = {
+  '2048': 'game-1024-state-2048',
+  'infinite': 'game-1024-state-infinite',
 };
 
-export function useGame(gameMode = 'normal') {
+// Game mode storage keys (normal vs daily)
+const GAMEMODE_STORAGE_KEYS = {
+  'normal': 'game-1024-state',
+  'daily': 'game-1024-state-daily',
+};
+
+export function useGame(gameMode = 'normal', playMode = '2048') {
   const [moveCount, setMoveCount] = useState(0);
-  
-  const storageKey = MODE_STORAGE_KEYS[gameMode] || MODE_STORAGE_KEYS.normal;
+
+  // Combined storage key based on gameMode + playMode
+  // 'normal' mode uses playMode ('2048'/'infinite') for key separation
+  // 'daily' mode uses its own dedicated key
+  const getStorageKey = () => {
+    if (gameMode === 'daily') return 'game-1024-state-daily';
+    return `game-1024-state-${playMode}`;
+  };
+  const storageKey = getStorageKey();
   const [savedState, setSavedState] = useStorage(storageKey, null);
   const [skin, setSkin] = useStorage('game-1024-skin', 'classic');
-  
+
+  // Get win value based on playMode
+  const winValue = playMode === 'infinite' ? null : (playMode === '2048' ? 2048 : 1024);
+
   const getInitialGrid = useCallback(() => {
     if (savedState?.grid) return savedState.grid;
     const g = createEmptyGrid();
@@ -123,19 +138,19 @@ export function useGame(gameMode = 'normal') {
   }, [savedState]);
 
   const [grid, setGrid] = useState(() => getInitialGrid());
-  
+
   const [score, setScore] = useState(savedState?.score || 0);
   const [won, setWon] = useState(savedState?.won || false);
   const [gameOver, setGameOver] = useState(savedState?.gameOver || false);
 
-  // Reset grid when mode changes
+  // Reset when gameMode or playMode changes
   useEffect(() => {
     setGrid(getInitialGrid());
     setScore(savedState?.score || 0);
     setWon(savedState?.won || false);
     setGameOver(savedState?.gameOver || false);
     setMoveCount(0);
-  }, [gameMode, storageKey]);
+  }, [gameMode, playMode]);
 
   useEffect(() => {
     if (!gameOver && !won) {
@@ -145,23 +160,27 @@ export function useGame(gameMode = 'normal') {
 
   const doMove = useCallback((direction) => {
     if (gameOver) return;
-    
+
     const result = move(grid, direction);
     if (gridsEqual(result.grid, grid)) return;
-    
+
     const newGrid = addRandomTile(result.grid);
     setGrid(newGrid);
     setScore(s => s + result.score);
     setMoveCount(c => c + 1);
-    
-    if (!won && result.score >= WIN_VALUE) {
-      setWon(true);
+
+    // Win condition: playMode has a winValue and grid reaches it
+    if (!won && winValue !== null) {
+      const maxTile = Math.max(...newGrid.flat());
+      if (maxTile >= winValue) {
+        setWon(true);
+      }
     }
-    
+
     if (!canMove(newGrid)) {
       setGameOver(true);
     }
-  }, [grid, gameOver, won]);
+  }, [grid, gameOver, won, winValue]);
 
   const newGame = useCallback(() => {
     const g = createEmptyGrid();
@@ -172,7 +191,6 @@ export function useGame(gameMode = 'normal') {
     setMoveCount(0);
   }, []);
 
-  // Reset game with a specific grid (for daily challenge)
   const resetWithGrid = useCallback((dailyGrid) => {
     setGrid([...dailyGrid.map(row => [...row])]);
     setScore(0);
@@ -191,7 +209,8 @@ export function useGame(gameMode = 'normal') {
     doMove,
     newGame,
     resetWithGrid,
-    mode: gameMode,
+    gameMode,
+    playMode,
     moveCount,
   };
 }

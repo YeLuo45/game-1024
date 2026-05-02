@@ -1,13 +1,18 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { Grid } from './Grid';
 import { ScoreBoard } from './ScoreBoard';
 import { Controls } from './Controls';
 import { SkinPicker } from './SkinPicker';
 import { GameOver } from './GameOver';
+import { AchievementPopup } from './AchievementPopup';
 import { useGame } from '../hooks/useGame';
+import { useDaily } from '../hooks/useDaily';
+import { useAchievements } from '../hooks/useAchievements';
 import { getSkin } from '../utils/skins';
 
-export function Game() {
+export function Game({ gameMode, onShowMenu }) {
+  const isInDailyChallenge = gameMode === 'daily';
+  
   const {
     grid,
     score,
@@ -16,12 +21,64 @@ export function Game() {
     skin: skinName,
     setSkin,
     doMove,
-    newGame
-  } = useGame();
+    newGame,
+    resetWithGrid,
+    mode,
+    moveCount
+  } = useGame(gameMode);
 
   const skin = getSkin(skinName);
-  const [showGameOver, setShowGameOver] = React.useState(false);
-  const [keepPlaying, setKeepPlaying] = React.useState(false);
+  const [showGameOver, setShowGameOver] = useState(false);
+  const [keepPlaying, setKeepPlaying] = useState(false);
+  
+  const { daily, dailyGrid, updateBestScore, getPlayedDaysCount } = useDaily();
+  const {
+    pendingPopup,
+    dismissPopup,
+    checkMergeAchievements,
+    checkReachAchievements,
+    checkNoDead50,
+    trackSkinUsage,
+    checkDaily3: checkDaily3Ach,
+  } = useAchievements();
+
+  const prevGridRef = useRef(null);
+  const isInitializedRef = useRef(false);
+
+  // Initialize daily challenge with seeded grid
+  useEffect(() => {
+    if (isInDailyChallenge && dailyGrid && !isInitializedRef.current) {
+      resetWithGrid(dailyGrid);
+      isInitializedRef.current = true;
+    }
+    if (!isInDailyChallenge) {
+      isInitializedRef.current = false;
+    }
+  }, [isInDailyChallenge, dailyGrid, resetWithGrid]);
+
+  // Track skin usage for all-skins achievement
+  useEffect(() => {
+    trackSkinUsage(skinName);
+  }, [skinName, trackSkinUsage]);
+
+  // Achievement: check reach achievements when grid changes
+  useEffect(() => {
+    if (grid) {
+      checkReachAchievements(grid);
+    }
+  }, [grid, checkReachAchievements]);
+
+  // Achievement: check no-dead-50 and update daily score when game ends
+  useEffect(() => {
+    if ((gameOver || won) && moveCount > 0) {
+      checkNoDead50(won, moveCount);
+      if (isInDailyChallenge) {
+        updateBestScore(score);
+        const playedCount = getPlayedDaysCount();
+        checkDaily3Ach(playedCount);
+      }
+    }
+  }, [gameOver, won, moveCount, score, isInDailyChallenge, updateBestScore, getPlayedDaysCount, checkNoDead50, checkDaily3Ach]);
 
   useEffect(() => {
     if (won && !keepPlaying) {
@@ -37,7 +94,11 @@ export function Game() {
   const handleNewGame = () => {
     setShowGameOver(false);
     setKeepPlaying(false);
-    newGame();
+    if (isInDailyChallenge && dailyGrid) {
+      resetWithGrid(dailyGrid);
+    } else {
+      newGame();
+    }
   };
 
   const handleTouchStart = useCallback((e) => {
@@ -84,6 +145,34 @@ export function Game() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // Check for first-merge and combo achievements by comparing grids before/after move
+  const handleMove = useCallback((direction) => {
+    prevGridRef.current = grid.map(row => [...row]);
+    doMove(direction);
+  }, [grid, doMove]);
+
+  // After move, check achievements
+  useEffect(() => {
+    if (prevGridRef.current && grid) {
+      // Count merges by comparing cell values - a merge is when a cell doubles
+      let merges = 0;
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const newVal = grid[r][c];
+          const oldVal = prevGridRef.current[r][c];
+          // A merge happened if the new value is double the old value
+          // and the value is greater than 0
+          if (newVal > 0 && newVal === oldVal * 2) {
+            merges++;
+          }
+        }
+      }
+      if (merges > 0) {
+        checkMergeAchievements(merges, grid, prevGridRef.current);
+      }
+    }
+  }, [grid, checkMergeAchievements]);
+
   return (
     <div
       className="game"
@@ -94,8 +183,21 @@ export function Game() {
       onTouchStart={handleTouchStart}
     >
       <header className="game-header">
-        <h1 className="game-title" style={{ color: skin.textColor }}>1024</h1>
-        <ScoreBoard score={score} skin={skin} />
+        <div className="header-left">
+          <h1 className="game-title" style={{ color: skin.textColor }}>
+            {isInDailyChallenge ? '📅 每日挑战' : '1024'}
+          </h1>
+        </div>
+        <div className="header-right">
+          <ScoreBoard score={score} skin={skin} />
+          <button 
+            className="menu-btn"
+            onClick={onShowMenu}
+            style={{ backgroundColor: skin.buttonBg }}
+          >
+            ☰
+          </button>
+        </div>
       </header>
       
       <SkinPicker
@@ -106,7 +208,7 @@ export function Game() {
       
       <Grid grid={grid} skin={skin} />
       
-      <Controls onMove={doMove} skin={skin} />
+      <Controls onMove={handleMove} skin={skin} />
       
       <button
         className="new-game-btn"
@@ -122,6 +224,11 @@ export function Game() {
         onNewGame={handleNewGame}
         onContinue={handleContinue}
         skin={skin}
+      />
+      
+      <AchievementPopup 
+        achievement={pendingPopup} 
+        onDismiss={dismissPopup} 
       />
     </div>
   );

@@ -54,7 +54,7 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
     checkDaily3: checkDaily3Ach,
   } = useAchievements();
 
-  const { updateStats } = useStats();
+  const { stats, updateStats } = useStats();
   const { isUnlocked } = useSkinUnlocks(stats);
 
   const prevGridRef = useRef(null);

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import { Grid } from './Grid';
 import { ScoreBoard } from './ScoreBoard';
 import { Controls } from './Controls';
@@ -6,16 +6,14 @@ import { SkinPicker } from './SkinPicker';
 import { GameOver } from './GameOver';
 import { AchievementPopup } from './AchievementPopup';
 import { ModeSwitcher } from './ModeSwitcher';
-import { BoardSizeSwitcher } from './BoardSizeSwitcher';
 import { useGame } from '../hooks/useGame';
 import { useDaily } from '../hooks/useDaily';
 import { useAchievements } from '../hooks/useAchievements';
 import { useAudio } from '../hooks/useAudio';
 import { useStats } from '../hooks/useStats';
-import { useSkinUnlocks } from '../hooks/useSkinUnlocks';
 import { getSkin } from '../utils/skins';
 
-export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSizeChange, onShowMenu, darkMode, onDarkModeToggle, currentSkin, onSkinChange }) {
+export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   const isInDailyChallenge = gameMode === 'daily';
 
   const {
@@ -32,13 +30,15 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
     retry,
     canUndo,
     moveCount
-  } = useGame(gameMode, playMode, gridSize);
+  } = useGame(gameMode, playMode);
 
   const { soundEnabled, toggleSound, playNewGame, playWin, playGameOver, playUndo } = useAudio();
 
   const skin = getSkin(skinName);
   const [showGameOver, setShowGameOver] = useState(false);
   const [keepPlaying, setKeepPlaying] = useState(false);
+  const [scoreIncrease, setScoreIncrease] = useState(0);
+  const [showScorePopup, setShowScorePopup] = useState(false);
   
   const { daily, dailyGrid, updateBestScore, getPlayedDaysCount } = useDaily();
   const {
@@ -52,7 +52,6 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
   } = useAchievements();
 
   const { updateStats } = useStats();
-  const { isUnlocked } = useSkinUnlocks(stats);
 
   const prevGridRef = useRef(null);
   const isInitializedRef = useRef(false);
@@ -84,7 +83,6 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
   useEffect(() => {
     if ((gameOver || won) && moveCount > 0) {
       checkNoDead50(won, moveCount);
-      // Update game stats
       const maxTile = grid ? Math.max(...grid.flat()) : 0;
       updateStats(playMode, { won, score, maxTile, isDaily: isInDailyChallenge });
       if (isInDailyChallenge) {
@@ -170,15 +168,11 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
   // After move, check achievements
   useEffect(() => {
     if (prevGridRef.current && grid) {
-      // Count merges by comparing cell values - a merge is when a cell doubles
       let merges = 0;
-      const size = grid.length || 4;
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
           const newVal = grid[r][c];
           const oldVal = prevGridRef.current[r][c];
-          // A merge happened if the new value is double the old value
-          // and the value is greater than 0
           if (newVal > 0 && newVal === oldVal * 2) {
             merges++;
           }
@@ -189,6 +183,21 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
       }
     }
   }, [grid, checkMergeAchievements]);
+
+  // Build tileMap from grid for Grid component
+  const tileMap = useMemo(() => {
+    if (!grid) return new Map();
+    const map = new Map();
+    let id = 0;
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        if (grid[r][c] !== 0) {
+          map.set(id++, { id: id, r, c, value: grid[r][c], isNew: false, isMerged: false, isMoved: false });
+        }
+      }
+    }
+    return map;
+  }, [grid]);
 
   return (
     <div
@@ -207,14 +216,6 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
         </div>
         <div className="header-right">
           <ScoreBoard score={score} skin={skin} />
-          <button
-            className="dark-mode-btn"
-            onClick={onDarkModeToggle}
-            style={{ backgroundColor: skin.buttonBg }}
-            title={darkMode ? 'Light Mode' : 'Dark Mode'}
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </button>
           <button
             className="sound-btn"
             onClick={toggleSound}
@@ -241,7 +242,7 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
           style={{ backgroundColor: skin.buttonBg, opacity: canUndo ? 1 : 0.4 }}
           title="撤销"
         >
-          ↩️
+          ↩
         </button>
         <button
           className="retry-btn"
@@ -254,10 +255,9 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
       </div>
       
       <SkinPicker
-        currentSkin={currentSkin}
-        onSkinChange={onSkinChange}
+        currentSkin={skinName}
+        onSkinChange={setSkin}
         skin={skin}
-        isUnlocked={isUnlocked}
       />
 
       {!isInDailyChallenge && (
@@ -267,15 +267,6 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
           skin={skin}
         />
       )}
-
-      {!isInDailyChallenge && (
-        <BoardSizeSwitcher
-          currentSize={gridSize}
-          onSizeChange={onGridSizeChange}
-          skin={skin}
-          isInDailyChallenge={isInDailyChallenge}
-        />
-      )}
       
       <Grid 
         grid={grid} 
@@ -283,7 +274,6 @@ export function Game({ gameMode, playMode, gridSize, onPlayModeChange, onGridSiz
         tileMap={tileMap}
         showScorePopup={showScorePopup}
         scoreIncrease={scoreIncrease}
-        gridSize={gridSize}
       />
       
       <Controls onMove={handleMove} skin={skin} />

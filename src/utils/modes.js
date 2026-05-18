@@ -12,6 +12,13 @@ export const MODES = {
   }
 };
 
+// Grid size options for custom board
+export const GRID_SIZES = {
+  '4x4': { size: 4, label: '4×4', initialTiles: 2 },
+  '5x5': { size: 5, label: '5×5', initialTiles: 3 },
+  '6x6': { size: 6, label: '6×6', initialTiles: 4 },
+};
+
 export const MODE_KEY_STORAGE = 'game-1024-mode';
 
 export const getModeConfig = (mode) => MODES[mode] || MODES['2048'];

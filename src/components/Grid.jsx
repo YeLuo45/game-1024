@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Cell } from './Cell';
 
-export function Grid({ grid, skin, tileMap, showScorePopup, scoreIncrease }) {
+export function Grid({ grid, skin, tileMap, showScorePopup, scoreIncrease, gridSize = '4x4' }) {
   const prevTileMapRef = useRef(new Map());
   const [animKey, setAnimKey] = useState(0);
   const [scorePopupPos, setScorePopupPos] = useState({ top: '50%', left: '50%' });
+
+  const size = grid?.length || 4;
+  const cellPercent = 100 / size;
 
   // Trigger animation reset when tileMap changes
   useEffect(() => {
@@ -21,8 +24,14 @@ export function Grid({ grid, skin, tileMap, showScorePopup, scoreIncrease }) {
 
   return (
     <div className="grid-container" style={{ backgroundColor: skin.gridBackground }}>
-      <div className="grid-background">
-        {Array(16).fill(null).map((_, i) => (
+      <div 
+        className="grid-background"
+        style={{
+          gridTemplateColumns: `repeat(${size}, 1fr)`,
+          gridTemplateRows: `repeat(${size}, 1fr)`,
+        }}
+      >
+        {Array(size * size).fill(null).map((_, i) => (
           <div key={i} className="cell-empty" style={{ backgroundColor: skin.cellBackground }} />
         ))}
       </div>
@@ -32,10 +41,10 @@ export function Grid({ grid, skin, tileMap, showScorePopup, scoreIncrease }) {
             key={tile.id}
             className={`tile ${tile.isNew ? 'tile-new' : ''} ${tile.isMerged ? 'tile-merged' : ''} ${tile.isMoved ? 'tile-moved' : ''}`}
             style={{
-              top: `${tile.r * 25}%`,
-              left: `${tile.c * 25}%`,
-              width: '25%',
-              height: '25%'
+              top: `${tile.r * cellPercent}%`,
+              left: `${tile.c * cellPercent}%`,
+              width: `${cellPercent}%`,
+              height: `${cellPercent}%`
             }}
           >
             <Cell value={tile.value} skin={skin} />

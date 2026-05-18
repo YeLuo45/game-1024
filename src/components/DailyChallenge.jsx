@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getDailyDateStr, getTimeUntilMidnight } from '../utils/daily';
 
-export function DailyChallenge({ daily, onBack, onStartChallenge, skin }) {
+export function DailyChallenge({ daily, onBack, onStartChallenge, skin, darkMode, onDarkModeToggle }) {
   const [countdown, setCountdown] = useState(getTimeUntilMidnight());
   
   useEffect(() => {
@@ -24,6 +24,14 @@ export function DailyChallenge({ daily, onBack, onStartChallenge, skin }) {
       <div className="daily-header">
         <button className="back-btn" onClick={onBack}>← 返回</button>
         <h2>📅 每日挑战</h2>
+        <button
+          className="dark-mode-btn"
+          onClick={onDarkModeToggle}
+          style={{ backgroundColor: skin.buttonBg }}
+          title={darkMode ? 'Light Mode' : 'Dark Mode'}
+        >
+          {darkMode ? '☀️' : '🌙'}
+        </button>
       </div>
       
       <div className="daily-info">

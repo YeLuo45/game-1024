@@ -845,3 +845,173 @@ body {
     height: 55px;
   }
 }
+
+/* Dark Mode */
+body.dark-mode {
+  background-color: #1a1a2e;
+}
+
+body.dark-mode .app {
+  background-color: #1a1a2e;
+}
+
+body.dark-mode .game {
+  background-color: #1a1a2e;
+}
+
+body.dark-mode .game-title {
+  color: #eaeaea !important;
+}
+
+body.dark-mode .score-box {
+  background-color: #16213e !important;
+}
+
+body.dark-mode .score-label {
+  color: #eaeaea;
+}
+
+body.dark-mode .score-value {
+  color: #eaeaea;
+}
+
+body.dark-mode .skin-label {
+  color: #eaeaea !important;
+}
+
+body.dark-mode .skin-btn.active {
+  border-color: #eaeaea;
+}
+
+body.dark-mode .control-btn {
+  background-color: #16213e;
+  color: #eaeaea;
+}
+
+body.dark-mode .control-btn:active {
+  background-color: #0f3460;
+}
+
+body.dark-mode .undo-btn,
+body.dark-mode .retry-btn {
+  opacity: 0.9;
+}
+
+body.dark-mode .new-game-btn {
+  color: #ffffff;
+}
+
+body.dark-mode .tab-btn {
+  color: #eaeaea;
+  background: rgba(255,255,255,0.1);
+}
+
+body.dark-mode .tab-btn.active {
+  background-color: #16213e;
+  color: #eaeaea;
+}
+
+body.dark-mode .stats-card {
+  background: rgba(255,255,255,0.1);
+}
+
+body.dark-mode .stat-label {
+  color: #a0a0a0;
+}
+
+body.dark-mode .stat-value {
+  color: #eaeaea;
+}
+
+body.dark-mode .game-over-modal {
+  background-color: #16213e !important;
+}
+
+body.dark-mode .game-over-modal h2,
+body.dark-mode .game-over-modal p {
+  color: #eaeaea;
+}
+
+body.dark-mode .menu-page,
+body.dark-mode .daily-challenge-page,
+body.dark-mode .achievements-page {
+  background-color: inherit;
+}
+
+body.dark-mode .menu-header h2 {
+  color: #eaeaea;
+}
+
+body.dark-mode .back-btn {
+  color: #eaeaea;
+  background-color: #16213e;
+}
+
+body.dark-mode .menu-item {
+  color: #eaeaea;
+}
+
+/* Dark Mode Button */
+.dark-mode-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark-mode-btn:hover {
+  opacity: 0.9;
+}
+
+.dark-mode-btn:active {
+  transform: scale(0.95);
+}
+
+/* Locked skin button */
+.skin-btn.locked {
+  opacity: 0.6;
+}
+
+.skin-btn.locked:hover {
+  transform: scale(1.05);
+}
+
+/* Festival skin glow effects */
+.tile.is-glowing {
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.tile.has-snowflake::after {
+  content: '❄';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 8px;
+}
+
+.tile.has-pumpkin::after {
+  content: '🎃';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 8px;
+}
+
+.tile.has-stars::after {
+  content: '⭐';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 8px;
+}
+
+/* Board size switcher */
+.board-size-switcher button {
+  font-size: 0.9rem;
+}

@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStorage } from './useStorage';
 import { audioManager } from '../utils/AudioManager';
+import { GRID_SIZES } from '../utils/modes';
 
-const GRID_SIZE = 4;
-
-const createEmptyGrid = () => {
-  return Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(0));
+const createEmptyGrid = (size) => {
+  return Array(size).fill(null).map(() => Array(size).fill(0));
 };
 
-const getEmptyCells = (grid) => {
+const getEmptyCells = (grid, size) => {
   const empty = [];
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
       if (grid[r][c] === 0) empty.push({ r, c });
     }
   }
@@ -21,22 +20,28 @@ const getEmptyCells = (grid) => {
 let globalTileId = 0;
 const nextTileId = () => ++globalTileId;
 
-const addRandomTile = (grid, rng = Math.random) => {
-  const empty = getEmptyCells(grid);
-  if (empty.length === 0) return { grid, newPos: null };
-  const { r, c } = empty[Math.floor(rng() * empty.length)];
-  const newGrid = grid.map(row => [...row]);
-  newGrid[r][c] = rng() < 0.9 ? 2 : 4;
-  return { grid: newGrid, newPos: { r, c } };
+const addRandomTile = (grid, size, initialTiles = 2, rng = Math.random) => {
+  let newGrid = grid.map(row => [...row]);
+  for (let i = 0; i < initialTiles; i++) {
+    const empty = getEmptyCells(newGrid, size);
+    if (empty.length === 0) break;
+    const { r, c } = empty[Math.floor(rng() * empty.length)];
+    newGrid[r][c] = rng() < 0.9 ? 2 : 4;
+  }
+  const firstEmpty = getEmptyCells(grid, size);
+  const newPos = firstEmpty.length > 0 
+    ? firstEmpty[Math.floor(rng() * firstEmpty.length)] 
+    : null;
+  return { grid: newGrid, newPos };
 };
 
-const rotateGrid = (grid, times = 1) => {
+const rotateGrid = (grid, size, times = 1) => {
   let result = grid.map(row => [...row]);
   for (let t = 0; t < times; t++) {
-    const rotated = createEmptyGrid();
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
-        rotated[c][GRID_SIZE - 1 - r] = result[r][c];
+    const rotated = createEmptyGrid(size);
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        rotated[c][size - 1 - r] = result[r][c];
       }
     }
     result = rotated;
@@ -44,7 +49,7 @@ const rotateGrid = (grid, times = 1) => {
   return result;
 };
 
-const slideRow = (row) => {
+const slideRow = (row, size) => {
   const filtered = row.filter(x => x !== 0);
   const merged = [];
   let score = 0;
@@ -62,15 +67,15 @@ const slideRow = (row) => {
     }
   }
 
-  while (merged.length < GRID_SIZE) merged.push(0);
+  while (merged.length < size) merged.push(0);
   return { row: merged, score, mergeCount };
 };
 
-const moveLeft = (grid) => {
+const moveLeft = (grid, size) => {
   let totalScore = 0;
   let totalMerges = 0;
   const newGrid = grid.map(row => {
-    const { row: newRow, score, mergeCount } = slideRow(row);
+    const { row: newRow, score, mergeCount } = slideRow(row, size);
     totalScore += score;
     totalMerges += mergeCount;
     return newRow;
@@ -78,29 +83,29 @@ const moveLeft = (grid) => {
   return { grid: newGrid, score: totalScore, merges: totalMerges };
 };
 
-const move = (grid, direction) => {
+const move = (grid, size, direction) => {
   let rotations = { left: 0, up: 1, right: 2, down: 3 }[direction];
-  let rotated = rotateGrid(grid, rotations);
-  let { grid: moved, score, merges } = moveLeft(rotated);
-  rotated = rotateGrid(moved, (4 - rotations) % 4);
+  let rotated = rotateGrid(grid, size, rotations);
+  let { grid: moved, score, merges } = moveLeft(rotated, size);
+  rotated = rotateGrid(moved, size, (4 - rotations) % 4);
   return { grid: rotated, score, merges };
 };
 
-const gridsEqual = (a, b) => {
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
+const gridsEqual = (a, b, size) => {
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
       if (a[r][c] !== b[r][c]) return false;
     }
   }
   return true;
 };
 
-const canMove = (grid) => {
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
+const canMove = (grid, size) => {
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
       if (grid[r][c] === 0) return true;
-      if (c < GRID_SIZE - 1 && grid[r][c] === grid[r][c + 1]) return true;
-      if (r < GRID_SIZE - 1 && grid[r][c] === grid[r + 1][c]) return true;
+      if (c < size - 1 && grid[r][c] === grid[r][c + 1]) return true;
+      if (r < size - 1 && grid[r][c] === grid[r + 1][c]) return true;
     }
   }
   return false;
@@ -112,21 +117,18 @@ const PLAYMODE_STORAGE_KEYS = {
   'infinite': 'game-1024-state-infinite',
 };
 
-// Game mode storage keys (normal vs daily)
-const GAMEMODE_STORAGE_KEYS = {
-  'normal': 'game-1024-state',
-  'daily': 'game-1024-state-daily',
-};
+export function useGame(gameMode = 'normal', playMode = '2048', gridSize = '4x4') {
+  const size = GRID_SIZES[gridSize]?.size || 4;
+  const initialTiles = GRID_SIZES[gridSize]?.initialTiles || 2;
 
-export function useGame(gameMode = 'normal', playMode = '2048') {
   const [moveCount, setMoveCount] = useState(0);
   const prevGridRef = useRef(null);
   const [history, setHistory] = useState([]); // Array<{grid, score, won}> max 10
 
-  // Combined storage key based on gameMode + playMode
+  // Combined storage key based on gameMode + playMode + gridSize
   const getStorageKey = () => {
-    if (gameMode === 'daily') return 'game-1024-state-daily';
-    return `game-1024-state-${playMode}`;
+    if (gameMode === 'daily') return `game-1024-state-daily-${gridSize}`;
+    return `game-1024-state-${playMode}-${gridSize}`;
   };
   const storageKey = getStorageKey();
   const [savedState, setSavedState] = useStorage(storageKey, null);
@@ -137,9 +139,9 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
 
   const getInitialGrid = useCallback(() => {
     if (savedState?.grid) return savedState.grid;
-    const g = createEmptyGrid();
-    return addRandomTile(addRandomTile(g).grid).grid;
-  }, [savedState]);
+    const g = createEmptyGrid(size);
+    return addRandomTile(addRandomTile(g, size, initialTiles).grid, size, initialTiles).grid;
+  }, [savedState, size, initialTiles]);
 
   const [grid, setGrid] = useState(() => getInitialGrid());
 
@@ -166,7 +168,7 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
   const scorePopupTimerRef = useRef(null);
   const tileIdCounterRef = useRef(globalTileId);
 
-  // Reset when gameMode or playMode changes
+  // Reset when gameMode, playMode, or gridSize changes
   useEffect(() => {
     const newGrid = getInitialGrid();
     const newMap = new Map();
@@ -185,7 +187,7 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     setGameOver(savedState?.gameOver || false);
     setMoveCount(0);
     prevGridRef.current = null;
-  }, [gameMode, playMode]);
+  }, [gameMode, playMode, gridSize]);
 
   useEffect(() => {
     if (!gameOver && !won) {
@@ -199,8 +201,8 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     // Store previous grid for animation computation
     prevGridRef.current = grid.map(row => [...row]);
 
-    const result = move(grid, direction);
-    if (gridsEqual(result.grid, grid)) return;
+    const result = move(grid, size, direction);
+    if (gridsEqual(result.grid, grid, size)) return;
 
     // Save current state to history before moving (max 9 entries, newest first)
     const snapshot = {
@@ -221,7 +223,7 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
       scorePopupTimerRef.current = setTimeout(() => setShowScorePopup(false), 800);
     }
 
-    const { grid: newGrid, newPos } = addRandomTile(result.grid);
+    const { grid: newGrid, newPos } = addRandomTile(result.grid, size, 1);
 
     // Compute animation flags by comparing grids
     const prevGrid = result.grid; // grid before random tile was added
@@ -229,8 +231,8 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     const newSet = new Set();
 
     // Find merged positions (value doubled)
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
         if (prevGrid[r][c] !== 0 && newGrid[r][c] === prevGrid[r][c] * 2) {
           mergedSet.add(`${r}-${c}`);
         }
@@ -244,8 +246,8 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
 
     // Build new tile map
     const newTileMap = new Map();
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
         if (newGrid[r][c] !== 0) {
           const key = `${r}-${c}`;
           const isNew = newSet.has(key);
@@ -283,14 +285,14 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
       }
     }
 
-    if (!canMove(newGrid)) {
+    if (!canMove(newGrid, size)) {
       setGameOver(true);
     }
-  }, [grid, gameOver, won, winValue]);
+  }, [grid, gameOver, won, winValue, size]);
 
   const newGame = useCallback(() => {
-    const g = createEmptyGrid();
-    const { grid: newGrid } = addRandomTile(addRandomTile(g).grid);
+    const g = createEmptyGrid(size);
+    const { grid: newGrid } = addRandomTile(addRandomTile(g, size, initialTiles).grid, size, initialTiles);
     const newMap = new Map();
     newGrid.forEach((row, r) => {
       row.forEach((val, c) => {
@@ -306,7 +308,7 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     setGameOver(false);
     setMoveCount(0);
     prevGridRef.current = null;
-  }, []);
+  }, [size, initialTiles]);
 
   const resetWithGrid = useCallback((dailyGrid) => {
     const gridCopy = [...dailyGrid.map(row => [...row])];
@@ -379,6 +381,7 @@ export function useGame(gameMode = 'normal', playMode = '2048') {
     history,
     gameMode,
     playMode,
+    gridSize,
     moveCount,
     tileMap,
     scoreIncrease,

@@ -1,11 +1,19 @@
 import React from 'react';
 
-export function Menu({ onDailyChallenge, onAchievements, onBack, skin }) {
+export function Menu({ onDailyChallenge, onAchievements, onBack, skin, darkMode, onDarkModeToggle }) {
   return (
     <div className="menu-page">
       <div className="menu-header">
         <button className="back-btn" onClick={onBack}>← 返回</button>
         <h2>☰ 菜单</h2>
+        <button
+          className="dark-mode-btn"
+          onClick={onDarkModeToggle}
+          style={{ backgroundColor: skin.buttonBg }}
+          title={darkMode ? 'Light Mode' : 'Dark Mode'}
+        >
+          {darkMode ? '☀️' : '🌙'}
+        </button>
       </div>
       <div className="menu-list">
         <button 

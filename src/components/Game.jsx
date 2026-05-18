@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import { Grid } from './Grid';
 import { ScoreBoard } from './ScoreBoard';
 import { Controls } from './Controls';
@@ -37,6 +37,8 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   const skin = getSkin(skinName);
   const [showGameOver, setShowGameOver] = useState(false);
   const [keepPlaying, setKeepPlaying] = useState(false);
+  const [scoreIncrease, setScoreIncrease] = useState(0);
+  const [showScorePopup, setShowScorePopup] = useState(false);
   
   const { daily, dailyGrid, updateBestScore, getPlayedDaysCount } = useDaily();
   const {
@@ -67,17 +69,6 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
 
   // Track skin usage for all-skins achievement
   useEffect(() => {
-    if (isInDailyChallenge && dailyGrid && !isInitializedRef.current) {
-      resetWithGrid(dailyGrid);
-      isInitializedRef.current = true;
-    }
-    if (!isInDailyChallenge) {
-      isInitializedRef.current = false;
-    }
-  }, [isInDailyChallenge, dailyGrid, resetWithGrid]);
-
-  // Track skin usage for all-skins achievement
-  useEffect(() => {
     trackSkinUsage(skinName);
   }, [skinName, trackSkinUsage]);
 
@@ -92,7 +83,6 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   useEffect(() => {
     if ((gameOver || won) && moveCount > 0) {
       checkNoDead50(won, moveCount);
-      // Update game stats
       const maxTile = grid ? Math.max(...grid.flat()) : 0;
       updateStats(playMode, { won, score, maxTile, isDaily: isInDailyChallenge });
       if (isInDailyChallenge) {
@@ -178,14 +168,11 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
   // After move, check achievements
   useEffect(() => {
     if (prevGridRef.current && grid) {
-      // Count merges by comparing cell values - a merge is when a cell doubles
       let merges = 0;
       for (let r = 0; r < 4; r++) {
         for (let c = 0; c < 4; c++) {
           const newVal = grid[r][c];
           const oldVal = prevGridRef.current[r][c];
-          // A merge happened if the new value is double the old value
-          // and the value is greater than 0
           if (newVal > 0 && newVal === oldVal * 2) {
             merges++;
           }
@@ -196,6 +183,21 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
       }
     }
   }, [grid, checkMergeAchievements]);
+
+  // Build tileMap from grid for Grid component
+  const tileMap = useMemo(() => {
+    if (!grid) return new Map();
+    const map = new Map();
+    let id = 0;
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        if (grid[r][c] !== 0) {
+          map.set(id++, { id: id, r, c, value: grid[r][c], isNew: false, isMerged: false, isMoved: false });
+        }
+      }
+    }
+    return map;
+  }, [grid]);
 
   return (
     <div
@@ -240,7 +242,7 @@ export function Game({ gameMode, playMode, onPlayModeChange, onShowMenu }) {
           style={{ backgroundColor: skin.buttonBg, opacity: canUndo ? 1 : 0.4 }}
           title="撤销"
         >
-          ↩️
+          ↩
         </button>
         <button
           className="retry-btn"
